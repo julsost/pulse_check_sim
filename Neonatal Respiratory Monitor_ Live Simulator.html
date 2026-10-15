@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neonatal Respiratory Monitor: Live Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  --bg: #eef3f2;
+  --surface: #ffffff;
+  --surface-2: #e3ecea;
+  --text: #14282e;
+  --muted: #55686d;
+  --border: #c5d3d1;
+  --accent: #0c6b73;
+  --skin: #f0c9a8;
+  --blanket: #9fc4d6;
+  --cot: #7b8c91;
+  --green: #1f9d55;
+  --yellow: #e0a100;
+  --red: #d92d20;
+  --led-off: #cdd6d6;
+  --wave: #0c6b73;
+  --grid: #dbe5e3;
+  font-family: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1a1d; --surface: #172629; --surface-2: #1f3236; --text: #e6f0ef; --muted: #98aeb2;
+    --border: #2d4549; --accent: #4cc3cd; --skin: #d9a981; --blanket: #3f6a80; --cot: #6c8187;
+    --green: #3ecf7b; --yellow: #f2c230; --red: #ff5a4d; --led-off: #2c3f43; --wave: #4cc3cd; --grid: #223639;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1a1d; --surface: #172629; --surface-2: #1f3236; --text: #e6f0ef; --muted: #98aeb2;
+  --border: #2d4549; --accent: #4cc3cd; --skin: #d9a981; --blanket: #3f6a80; --cot: #6c8187;
+  --green: #3ecf7b; --yellow: #f2c230; --red: #ff5a4d; --led-off: #2c3f43; --wave: #4cc3cd; --grid: #223639;
+  color-scheme: dark;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.5; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-family: "Bricolage Grotesque", "Figtree", system-ui, sans-serif; font-size: clamp(1.6rem, 4vw, 2.3rem); line-height: 1.1; margin: 8px 0 6px; letter-spacing: -0.01em; }
+p.lede { margin: 0 0 18px; color: var(--muted); max-width: 62ch; }
+h2 { font-family: "Bricolage Grotesque", "Figtree", sans-serif; font-size: 1.1rem; margin: 0 0 10px; }
+
+.tabs { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 4px; gap: 4px; margin-bottom: 14px; }
+.tabs button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 7px; cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.stage { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+.stage svg { width: 100%; height: auto; display: block; }
+
+.controls { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 14px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+.readout { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.readout .num { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 3rem; line-height: 1; }
+.readout .unit { color: var(--muted); }
+.badge { margin-left: auto; padding: 6px 12px; border-radius: 999px; font-weight: 600; color: #fff; background: var(--green); }
+.badge[data-s="yellow"] { background: var(--yellow); color: #1b1500; }
+.badge[data-s="red"] { background: var(--red); }
+
+input[type=range] { width: 100%; height: 36px; accent-color: var(--accent); }
+.scale { position: relative; height: 26px; margin: -4px 8px 6px; font-size: .78rem; color: var(--muted); }
+.zones { height: 8px; border-radius: 4px; margin: 0 8px; background: linear-gradient(to right,
+  var(--red) 0 20%, var(--yellow) 20% 30%, var(--green) 30% 60%, var(--yellow) 60% 70%, var(--red) 70% 100%); opacity: .85; }
+.scale span { position: absolute; transform: translateX(-50%); top: 6px; }
+
+.presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.presets button { font: inherit; font-weight: 500; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+.presets button:hover { border-color: var(--accent); }
+.presets button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+:root[data-theme="dark"] .presets button.primary { color: #06191c; }
+
+canvas { width: 100%; height: 120px; display: block; border-radius: 8px; background: var(--surface-2); }
+
+.flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; }
+.block { flex: 1 1 120px; min-width: 110px; background: var(--surface-2); border: 2px solid var(--border); border-radius: 10px; padding: 8px 10px; transition: border-color .15s, background .15s; }
+.block.active { border-color: var(--accent); background: var(--surface); }
+.block b { display: block; font-size: .86rem; }
+.block small { display: block; color: var(--muted); font-size: .74rem; line-height: 1.25; margin-top: 2px; }
+.block .val { font-family: "Bricolage Grotesque", sans-serif; font-weight: 600; font-size: 1rem; margin-top: 4px; }
+.arrow { flex: 0 0 34px; display: flex; align-items: center; justify-content: center; color: var(--accent); }
+.arrow svg { width: 28px; height: 16px; overflow: visible; }
+.arrow .dash { stroke-dasharray: 5 4; animation: march .7s linear infinite; }
+@keyframes march { to { stroke-dashoffset: -9; } }
+.flow.paused .dash { animation-play-state: paused; }
+.block.led-block[data-s="green"] { border-color: var(--green); }
+.block.led-block[data-s="yellow"] { border-color: var(--yellow); }
+.block.led-block[data-s="red"] { border-color: var(--red); }
+
+.note { font-size: .82rem; color: var(--muted); margin-top: 12px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.theme { border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+
+@media (max-width: 640px) {
+  .flow { flex-direction: column; }
+  .arrow { flex-basis: 26px; }
+  .arrow svg { transform: rotate(90deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrow .dash { animation: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>Watch the monitor catch a failing breath</h1>
+    </div>
+    <button class="theme" id="themeBtn" aria-label="Toggle light or dark theme">Light / dark</button>
+  </div>
+  <p class="lede">Drag the respiratory rate and watch the baby breathe, the signal travel through each block of the system, and the cot LED change. Switch between your two hardware concepts to compare how each one senses breathing.</p>
+
+  <div class="tabs" role="group" aria-label="Concept">
+    <button id="tabBand" aria-pressed="true">Chest stretch band</button>
+    <button id="tabCannula" aria-pressed="false">Nasal cannula thermistor</button>
+  </div>
+
+  <div class="stage">
+    <svg viewBox="0 0 800 330" role="img" aria-label="Side view of a newborn in a cot with a respiratory sensor and a status LED on the cot post">
+      <!-- cot -->
+      <rect x="40" y="230" width="640" height="16" rx="6" fill="var(--cot)"/>
+      <rect x="60" y="246" width="10" height="64" fill="var(--cot)"/>
+      <rect x="650" y="246" width="10" height="64" fill="var(--cot)"/>
+      <rect x="70" y="205" width="590" height="26" rx="10" fill="var(--blanket)"/>
+      <!-- rails -->
+      <g stroke="var(--cot)" stroke-width="5" stroke-linecap="round">
+        <line x1="60" y1="130" x2="60" y2="230"/><line x1="150" y1="170" x2="150" y2="230"/>
+        <line x1="60" y1="130" x2="150" y2="170"/>
+      </g>
+      <!-- LED post -->
+      <rect x="700" y="60" width="14" height="250" rx="5" fill="var(--cot)"/>
+      <rect x="676" y="30" width="62" height="66" rx="12" fill="var(--surface-2)" stroke="var(--cot)" stroke-width="3"/>
+      <circle id="ledGlow" cx="707" cy="63" r="34" fill="var(--green)" opacity="0"/>
+      <circle id="led" cx="707" cy="63" r="19" fill="var(--green)" stroke="var(--text)" stroke-opacity=".35" stroke-width="2"/>
+      <text x="707" y="118" text-anchor="middle" font-size="13" fill="var(--muted)" font-family="Figtree, sans-serif">Cot LED</text>
+
+      <!-- baby -->
+      <g id="baby">
+        <circle cx="205" cy="190" r="34" fill="var(--skin)"/>
+        <circle cx="193" cy="186" r="3" fill="#3b2a20"/>
+        <path d="M183 203 q10 6 20 0" stroke="#a5614a" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <rect x="378" y="190" width="170" height="30" rx="15" fill="var(--skin)"/>
+        <rect x="540" y="196" width="60" height="22" rx="11" fill="var(--skin)"/>
+        <g id="chest">
+          <ellipse cx="320" cy="198" rx="92" ry="34" fill="var(--skin)"/>
+          <g id="bandG">
+            <rect x="302" y="160" width="34" height="76" rx="6" fill="var(--accent)" opacity=".92"/>
+            <path d="M306 176 l26 8 l-26 8 l26 8 l-26 8" stroke="#fff" stroke-width="3" fill="none" stroke-linejoin="round"/>
+            <rect x="326" y="150" width="30" height="16" rx="4" fill="var(--text)"/>
+            <text x="341" y="143" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="Figtree, sans-serif">Stretch sensor + MCU</text>
+          </g>
+        </g>
+        <!-- cannula -->
+        <g id="cannulaG">
+          <path d="M184 196 q-14 4 -18 -10" stroke="var(--accent)" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M166 186 Q150 150 120 150 L90 150" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round" opacity=".7"/>
+          <circle cx="178" cy="193" r="7" fill="var(--text)"/>
+          <text x="140" y="140" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="Figtree, sans-serif">Thermistor at nostril</text>
+          <g id="puffs" fill="var(--accent)"></g>
+        </g>
+        <path id="zzz" d="" />
+      </g>
+      <!-- signal wire -->
+      <path id="wire" d="M341 150 C 360 100, 560 60, 676 62" stroke="var(--accent)" stroke-width="3" fill="none" stroke-dasharray="6 6" opacity=".6"/>
+      <text x="400" y="30" font-size="14" fill="var(--muted)" font-family="Figtree, sans-serif" id="stateText">Breathing normally</text>
+    </svg>
+  </div>
+
+  <div class="controls">
+    <div class="panel">
+      <h2>Respiratory rate</h2>
+      <div class="readout">
+        <span class="num" id="rrNum">45</span><span class="unit">breaths/min</span>
+        <span class="badge" id="badge" data-s="green">Stable</span>
+      </div>
+      <input type="range" id="rr" min="0" max="100" value="45" step="1" aria-label="Respiratory rate in breaths per minute">
+      <div class="zones" aria-hidden="true"></div>
+      <div class="scale" aria-hidden="true">
+        <span style="left:0%">0</span><span style="left:20%">20</span><span style="left:30%">30</span>
+        <span style="left:60%">60</span><span style="left:70%">70</span><span style="left:100%">100</span>
+      </div>
+      <div class="presets">
+        <button id="pNormal">Normal (45)</button>
+        <button id="pFast">Fast (75)</button>
+        <button id="pSlow">Slowing (25)</button>
+        <button id="pApnea">Breathing pause (0)</button>
+        <button id="pAuto" class="primary">Play a decline</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>What the monitor sees</h2>
+      <canvas id="wave" aria-label="Live breathing signal"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Signal path through the system</h2>
+      <div class="flow" id="flow"></div>
+      <p class="note">The thresholds here are illustrative: green is 30 to 60 breaths/min, yellow is 20 to 29 or 61 to 70, and red is below 20, above 70, or a pause. The team would set the real cutoffs from clinical guidance. All signals are simulated, so this is a proof of concept and not clinical validation.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var mode = 'band';
+  var rr = 45, phase = 0, last = performance.now();
+  var autoTimer = null;
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function status(v) {
+    if (v < 20 || v > 70) return 'red';
+    if (v < 30 || v > 60) return 'yellow';
+    return 'green';
+  }
+  var LABEL = { green: 'Stable', yellow: 'Needs a look', red: 'Assess now' };
+  var COLOR = { green: 'var(--green)', yellow: 'var(--yellow)', red: 'var(--red)' };
+
+  var PIPE = {
+    band: [
+      { n: 'Neonate', d: 'Chest expands and falls', v: function (s) { return (s.b * 3).toFixed(1) + ' mm'; } },
+      { n: 'Adhesive strip', d: 'Passes movement to sensor', v: function (s) { return (3 + s.b * 4).toFixed(1) + ' % stretch'; } },
+      { n: 'Stretch sensor', d: 'Strain becomes voltage', v: function (s) { return (1.65 + s.b * 0.4).toFixed(2) + ' V'; } },
+      { n: 'Microcontroller', d: 'Counts breaths, checks trend', v: function (s) { return s.rr + ' br/min'; } },
+      { n: 'Cot LED', d: 'Green, yellow or red', led: true, v: function (s) { return LABEL[s.st]; } },
+      { n: 'Nurse', d: 'Sees color, assesses baby', v: function (s) { return s.st === 'green' ? 'Routine care' : s.st === 'yellow' ? 'Check soon' : 'Go now'; } }
+    ],
+    cannula: [
+      { n: 'Neonate', d: 'Warm air out, cool air in', v: function (s) { return (s.rr === 0 ? 'No airflow' : 'Airflow'); } },
+      { n: 'Nasal prongs', d: 'Existing cannula, reused', v: function (s) { return (s.b > 0 ? 'Inhale' : 'Exhale'); } },
+      { n: 'Thermistor', d: 'Temp swing becomes resistance', v: function (s) { return (31 + s.b * 3).toFixed(1) + ' \u00b0C'; } },
+      { n: 'Microcontroller', d: 'Finds breath cycles, checks trend', v: function (s) { return s.rr + ' br/min'; } },
+      { n: 'Cot LED', d: 'Green, yellow or red', led: true, v: function (s) { return LABEL[s.st]; } },
+      { n: 'Nurse', d: 'Sees color, assesses baby', v: function (s) { return s.st === 'green' ? 'Routine care' : s.st === 'yellow' ? 'Check soon' : 'Go now'; } }
+    ]
+  };
+
+  var flow = $('flow'), blockEls = [], valEls = [];
+  function buildFlow() {
+    flow.innerHTML = ''; blockEls = []; valEls = [];
+    PIPE[mode].forEach(function (b, i) {
+      if (i > 0) {
+        var a = document.createElement('div'); a.className = 'arrow'; a.setAttribute('aria-hidden', 'true');
+        a.innerHTML = '<svg viewBox="0 0 28 16"><line class="dash" x1="0" y1="8" x2="20" y2="8" stroke="currentColor" stroke-width="2.5"/><path d="M18 2 L27 8 L18 14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></svg>';
+        flow.appendChild(a);
+      }
+      var el = document.createElement('div'); el.className = 'block' + (b.led ? ' led-block' : '');
+      el.innerHTML = '<b>' + b.n + '</b><small>' + b.d + '</small><div class="val"></div>';
+      flow.appendChild(el); blockEls.push(el); valEls.push(el.querySelector('.val'));
+    });
+  }
+
+  // Cannula puffs
+  var puffs = $('puffs'), puffEls = [];
+  for (var i = 0; i < 3; i++) {
+    var c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('r', 3); puffs.appendChild(c); puffEls.push(c);
+  }
+
+  function setMode(m) {
+    mode = m;
+    $('tabBand').setAttribute('aria-pressed', m === 'band');
+    $('tabCannula').setAttribute('aria-pressed', m === 'cannula');
+    $('bandG').style.display = m === 'band' ? '' : 'none';
+    $('cannulaG').style.display = m === 'cannula' ? '' : 'none';
+    $('wire').setAttribute('d', m === 'band' ? 'M341 150 C 360 100, 560 60, 676 62' : 'M90 150 C 120 80, 400 40, 676 62');
+    buildFlow();
+  }
+  $('tabBand').onclick = function () { setMode('band'); };
+  $('tabCannula').onclick = function () { setMode('cannula'); };
+
+  function setRR(v) {
+    rr = Math.max(0, Math.min(100, Math.round(v)));
+    $('rr').value = rr;
+  }
+  function stopAuto() { if (autoTimer) { cancelAnimationFrame(autoTimer); autoTimer = null; $('pAuto').textContent = 'Play a decline'; } }
+  $('rr').addEventListener('input', function (e) { stopAuto(); rr = +e.target.value; });
+  $('pNormal').onclick = function () { stopAuto(); setRR(45); };
+  $('pFast').onclick = function () { stopAuto(); setRR(75); };
+  $('pSlow').onclick = function () { stopAuto(); setRR(25); };
+  $('pApnea').onclick = function () { stopAuto(); setRR(0); };
+  $('pAuto').onclick = function () {
+    if (autoTimer) { stopAuto(); return; }
+    $('pAuto').textContent = 'Stop';
+    var t0 = performance.now(), from = 50, dur = 14000;
+    function run(now) {
+      var p = Math.min(1, (now - t0) / dur);
+      setRR(from * (1 - p));
+      if (p < 1) autoTimer = requestAnimationFrame(run);
+      else { autoTimer = null; $('pAuto').textContent = 'Play a decline'; }
+    }
+    autoTimer = requestAnimationFrame(run);
+  };
+
+  // Waveform
+  var cv = $('wave'), ctx = cv.getContext('2d'), hist = [], WIN = 8; // seconds shown
+  function sizeCanvas() {
+    var dpr = window.devicePixelRatio || 1, r = cv.getBoundingClientRect();
+    cv.width = Math.max(10, r.width * dpr); cv.height = Math.max(10, r.height * dpr);
+  }
+  window.addEventListener('resize', sizeCanvas); sizeCanvas();
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function drawWave(now, st) {
+    var w = cv.width, h = cv.height, dpr = window.devicePixelRatio || 1;
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = cssVar('--grid'); ctx.lineWidth = 1 * dpr;
+    for (var g = 1; g < 8; g++) { ctx.beginPath(); ctx.moveTo(w * g / 8, 0); ctx.lineTo(w * g / 8, h); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+    ctx.strokeStyle = cssVar(st === 'green' ? '--wave' : st === 'yellow' ? '--yellow' : '--red');
+    ctx.lineWidth = 2.5 * dpr; ctx.lineJoin = 'round'; ctx.beginPath();
+    var started = false;
+    for (var i = 0; i < hist.length; i++) {
+      var age = (now - hist[i].t) / 1000; if (age > WIN) continue;
+      var x = w - (age / WIN) * w, y = h / 2 - hist[i].v * h * 0.36;
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  function breath(p) { return Math.sin(p) + 0.18 * Math.sin(2 * p + 0.6); }
+
+  var chest = $('chest'), led = $('led'), glow = $('ledGlow');
+  function frame(now) {
+    var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    phase += dt * (rr / 60) * Math.PI * 2;
+    var b = rr === 0 ? 0 : breath(phase) / 1.18;
+    var st = status(rr);
+    var s = { rr: rr, b: b, st: st };
+
+    // chest motion
+    var sy = 1 + 0.12 * b, sx = 1 + 0.025 * b;
+    chest.setAttribute('transform', 'translate(320 232) scale(' + sx.toFixed(3) + ' ' + sy.toFixed(3) + ') translate(-320 -232)');
+
+    // cannula airflow puffs
+    for (var i = 0; i < puffEls.length; i++) {
+      var k = ((phase / (Math.PI * 2)) * 1 + i / 3) % 1;
+      var out = b > 0;
+      var x = 178 - (out ? 1 : -1) * 0, y = 193;
+      puffEls[i].setAttribute('cx', (out ? 170 - k * 40 : 130 + k * 40).toFixed(1));
+      puffEls[i].setAttribute('cy', (out ? 190 - k * 18 : 172 + k * 18).toFixed(1));
+      puffEls[i].setAttribute('opacity', rr === 0 ? 0 : (0.7 * (1 - k)).toFixed(2));
+    }
+
+    // LED
+    var col = COLOR[st];
+    led.setAttribute('fill', col); glow.setAttribute('fill', col);
+    var pulse = st === 'red' ? (0.5 + 0.5 * Math.sin(now / 160)) : 0;
+    glow.setAttribute('opacity', st === 'red' ? (0.25 + 0.45 * pulse).toFixed(2) : st === 'yellow' ? 0.22 : 0.18);
+    glow.setAttribute('r', st === 'red' ? 34 + 8 * pulse : 34);
+
+    // text + badge
+    $('rrNum').textContent = rr;
+    var badge = $('badge'); badge.textContent = LABEL[st]; badge.setAttribute('data-s', st);
+    $('stateText').textContent = rr === 0 ? 'Breathing pause detected' : rr < 20 ? 'Breathing dangerously slow' : rr < 30 ? 'Breathing slower than normal' : rr > 70 ? 'Breathing dangerously fast' : rr > 60 ? 'Breathing faster than normal' : 'Breathing normally';
+    $('wire').setAttribute('stroke', col);
+    flow.classList.toggle('paused', rr === 0);
+
+    // block values
+    var defs = PIPE[mode];
+    for (var j = 0; j < defs.length; j++) {
+      valEls[j].textContent = defs[j].v(s);
+      blockEls[j].classList.toggle('active', rr > 0 || j >= 3);
+      if (defs[j].led) blockEls[j].setAttribute('data-s', st);
+    }
+
+    // waveform
+    hist.push({ t: now, v: rr === 0 ? 0 : b });
+    while (hist.length && now - hist[0].t > WIN * 1000 + 200) hist.shift();
+    drawWave(now, st);
+    requestAnimationFrame(frame);
+  }
+
+  // theme toggle
+  var themeBtn = $('themeBtn');
+  themeBtn.onclick = function () {
+    var root = document.documentElement, cur = root.getAttribute('data-theme');
+    if (!cur) cur = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  };
+
+  setMode('band');
+  requestAnimationFrame(function (t) { last = t; frame(t); });
+})();
+</script>
+</body>
+</html>
